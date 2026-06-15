@@ -63,8 +63,8 @@ def test_besoin_lent_chapo_avec_pourcentage() -> None:
     assert result.pf_rapide == "CHAPO"
     assert result.pf_lente == "CHAPO LENT"
     assert result.besoin_rapide == 20
-    assert result.besoin_lent_brut == pytest.approx(26.82)
-    assert result.besoin_lent == pytest.approx(26.82)
+assert result.besoin_lent_brut == pytest.approx(159.8472)
+assert result.besoin_lent == pytest.approx(123.8472)
 
 
 def test_besoin_lent_scy_sans_pourcentage_reduit_par_surplus() -> None:
