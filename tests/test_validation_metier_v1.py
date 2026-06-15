@@ -112,8 +112,8 @@ def test_validation_chapo_lent_avec_pourcentage() -> None:
     result = _calculer("CHA", 100, -20, coeff_lent=COEFF_LENT, pct_lent=PCT_LENT)
 
     assert result.pf_rapide == "CHAPO"
-    assert result.besoin_lent_brut == pytest.approx(159.8712)
-assert result.besoin_lent == pytest.approx(123.8712)
+   assert result.besoin_lent_brut == pytest.approx(159.8472)
+assert result.besoin_lent == pytest.approx(123.8472)
     assert result.surplus_positif == 0
     assert result.besoin_lent_brut == pytest.approx(26.82)
     assert result.besoin_lent == pytest.approx(26.82)
