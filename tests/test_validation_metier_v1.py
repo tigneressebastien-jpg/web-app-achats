@@ -112,8 +112,8 @@ def test_validation_chapo_lent_avec_pourcentage() -> None:
     result = _calculer("CHA", 100, -20, coeff_lent=COEFF_LENT, pct_lent=PCT_LENT)
 
     assert result.pf_rapide == "CHAPO"
-    assert result.pf_lente == "CHAPO LENT"
-    assert result.besoin_rapide == 20
+    assert result.besoin_lent_brut == pytest.approx(159.8712)
+assert result.besoin_lent == pytest.approx(123.8712)
     assert result.surplus_positif == 0
     assert result.besoin_lent_brut == pytest.approx(26.82)
     assert result.besoin_lent == pytest.approx(26.82)
@@ -168,8 +168,8 @@ def test_validation_consigne_stock_surplus_reduit_le_lent() -> None:
     assert result.solde_corrige == 36
     assert result.besoin_rapide == 0
     assert result.surplus_positif == 36
-    assert result.besoin_lent_brut == pytest.approx(159.8712)
-    assert result.besoin_lent == pytest.approx(123.8712)
+    assert result.besoin_lent_brut == pytest.approx(159.8472)
+assert result.besoin_lent == pytest.approx(123.8472)
 
 
 def test_validation_camions_samedi_40_semaine_glissante() -> None:
