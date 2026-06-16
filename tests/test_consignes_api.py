@@ -213,6 +213,45 @@ def test_consignes_import_csv_saves_valid_rows_and_reports_anomalies() -> None:
     assert list_response.json()["consignes"][0]["texte_consigne"] == "+15 stock"
 
 
+def test_consignes_import_csv_preview_does_not_save_rows() -> None:
+    csv_content = "\n".join(
+        [
+            "code_article;plateforme;texte_consigne;valeur_consigne;acheteur",
+            "ART-CONSIGNE-PREVIEW-001;ST CYR;+20 stock;2;Seb",
+        ]
+    )
+
+    response = client.post(
+        "/consignes/import/csv/preview",
+        files={"file": ("consignes.csv", csv_content, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "filename": "consignes.csv",
+        "source_type": "csv",
+        "row_count": 1,
+        "rows": [
+            {
+                "acheteur": "Seb",
+                "code_article": "ART-CONSIGNE-PREVIEW-001",
+                "plateforme": "ST CYR",
+                "texte_consigne": "+20 stock",
+                "valeur_consigne": 2,
+            }
+        ],
+        "anomalies": [],
+    }
+
+    list_response = client.get(
+        "/consignes/saved",
+        params={"acheteur": "Seb", "code_article": "ART-CONSIGNE-PREVIEW-001"},
+    )
+    assert list_response.status_code == 200
+    assert list_response.json()["consignes"] == []
+
+
 def test_consignes_import_csv_rejects_unsupported_format() -> None:
     response = client.post(
         "/consignes/import/csv",
