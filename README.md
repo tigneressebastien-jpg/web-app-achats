@@ -34,7 +34,9 @@ tests/
   conftest.py
   test_platforms.py
   test_consignes.py
+  test_consignes_api.py
   test_besoins.py
+  test_calculations_api.py
   test_camions.py
   test_fournisseur_constraints.py
   test_lunes_credit_lent.py
@@ -81,6 +83,132 @@ Il installe les dependances depuis :
 1. `requirements.txt` si present ;
 2. sinon `backend/requirements.txt` si present ;
 3. sinon un fallback minimal.
+
+## API backend actuelle
+
+Les routes FastAPI sont enregistrees dans :
+
+```text
+backend/app/main.py
+```
+
+### Statut
+
+```http
+GET /health
+```
+
+### Plateformes dynamiques
+
+Les plateformes ERP sont gerees par les endpoints plateformes.
+
+Objectifs couverts :
+
+- lire les plateformes actives ;
+- mapper un code ERP vers PF rapide/lente ;
+- garder les plateformes dynamiques en base SQLite.
+
+Exemples de mapping :
+
+```text
+SMT -> SAMATERRA / SAMATERRA LENT
+CHA -> CHAPO / CHAPO LENT
+SCY -> ST CYR / ST CYR LENT
+NME -> SUD LOG / SUD LOG LENT
+```
+
+### Imports ERP
+
+```http
+POST /imports/erp/preview
+POST /imports/erp/save
+GET /imports/batches
+GET /imports/batches/{batch_id}
+```
+
+- `preview` lit un fichier ERP sans l'enregistrer.
+- `save` lit le fichier ERP et enregistre un batch exploitable ensuite.
+- Les imports supportent CSV et Excel selon le service d'import.
+- Les anomalies d'import sont renvoyees dans la reponse.
+
+### Calculs Seb
+
+```http
+POST /calculations/seb/simple
+POST /calculations/seb/from-erp-import
+POST /calculations/seb/from-import-batch/{batch_id}
+GET /calculations/runs
+GET /calculations/runs/{run_id}
+```
+
+- `simple` calcule a partir de lignes JSON.
+- `from-erp-import` importe un fichier puis calcule directement.
+- `from-import-batch/{batch_id}` calcule depuis un batch ERP deja sauvegarde.
+- L'option `persist=true` permet de sauvegarder un run de calcul.
+- Les erreurs metier de calcul sont renvoyees en HTTP 400 avec l'article concerne.
+
+### Consignes
+
+```http
+POST /consignes/apply
+POST /consignes/saved
+GET /consignes/saved
+POST /consignes/import/csv/preview
+POST /consignes/import/csv
+```
+
+- `apply` applique une consigne sur un solde import donne.
+- `saved` permet de saisir ou mettre a jour une consigne sauvegardee.
+- `GET /consignes/saved` liste les consignes, avec filtres `acheteur`, `code_article`, `plateforme`.
+- `import/csv/preview` lit un CSV de consignes sans enregistrer les lignes.
+- `import/csv` enregistre les lignes valides et renvoie les anomalies.
+
+Colonnes CSV consignes reconnues :
+
+```text
+code_article;plateforme;texte_consigne;valeur_consigne;acheteur
+```
+
+Aliases acceptes par le parseur :
+
+```text
+code_article / code article / article / C
+plateforme / pf / plateforme cible
+texte_consigne / texte consigne / consigne
+valeur_consigne / valeur consigne / valeur
+acheteur / buyer
+```
+
+### Exports
+
+```http
+POST /exports/calculation-results.csv
+POST /exports/calculation-results.xlsx
+GET /exports/calculation-runs/{run_id}.csv
+GET /exports/calculation-runs/{run_id}.xlsx
+```
+
+- Les exports CSV/XLSX fonctionnent sur des resultats transmis ou sur un run persiste.
+- Les exports XLSX utilisent `openpyxl`.
+
+### Camions
+
+```http
+POST /camions/projection
+GET /camions/platforms/excel
+```
+
+- `projection` applique la semaine glissante sans arrondir les jours intermediaires.
+- `platforms/excel` expose le mapping equivalent aux cellules M8:M14 du fichier Excel.
+
+### Fournisseurs
+
+Les endpoints fournisseurs couvrent le remplissage simple en respectant les contraintes metier deja testees :
+
+- ne pas remplir une plateforme dont `COMMANDES = 0` ;
+- respecter `PF_INTERDITE` strictement ;
+- utiliser `PAS_COLIS` si renseigne, sinon la palettisation ;
+- ne pas depasser le besoin sur les plateformes lentes.
 
 ## Regle Lunes / Lundi / Monday
 
@@ -306,8 +434,12 @@ Mardi = 35.76 * 0.840 = 30.0384
 
 ## Etat actuel
 
-- Backend : en cours.
-- Tests unitaires : actifs.
+- Backend : en cours, avec routes FastAPI principales disponibles.
+- Imports ERP : preview, sauvegarde en batch, calcul depuis batch.
+- Consignes : application, saisie sauvegardee, preview CSV, import CSV.
+- Calculs : Seb simple, depuis fichier ERP, depuis batch persiste.
+- Exports : CSV et XLSX pour resultats et runs persistants.
+- Tests unitaires/API : actifs.
 - GitHub Actions : actif.
 - Endpoint Lunes : cree.
 - Frontend : non commence.
