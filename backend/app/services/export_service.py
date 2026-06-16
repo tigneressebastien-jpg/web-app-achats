@@ -1,23 +1,57 @@
 from __future__ import annotations
 
-from pathlib import Path
+import csv
+from io import StringIO
 from typing import Iterable, Mapping
 
 
-def exporter_resultats_csv(rows: Iterable[Mapping[str, object]], path: str | Path) -> Path:
-    import pandas as pd
+CALCULATION_RESULT_CSV_COLUMNS = [
+    "code_article",
+    "libelle_article",
+    "code_plateforme_erp",
+    "pf_rapide",
+    "pf_lente",
+    "solde_corrige",
+    "besoin_rapide",
+    "besoin_lent",
+    "besoin_lent_brut",
+    "surplus_positif",
+    "besoin_total",
+    "consigne_regle",
+    "logs",
+]
 
-    output_path = Path(path)
-    frame = pd.DataFrame(list(rows))
-    frame.to_csv(output_path, index=False, encoding="utf-8-sig")
-    return output_path
+
+def calculation_results_to_csv(
+    results: Iterable[Mapping[str, object]],
+    *,
+    delimiter: str = ";",
+) -> str:
+    """Export calculation results to a semicolon CSV string for Excel users."""
+    output = StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=CALCULATION_RESULT_CSV_COLUMNS,
+        delimiter=delimiter,
+        lineterminator="\n",
+        extrasaction="ignore",
+    )
+    writer.writeheader()
+
+    for result in results:
+        writer.writerow(
+            {
+                column: _format_csv_value(result.get(column))
+                for column in CALCULATION_RESULT_CSV_COLUMNS
+            }
+        )
+
+    return output.getvalue()
 
 
-def exporter_resultats_excel(rows: Iterable[Mapping[str, object]], path: str | Path) -> Path:
-    import pandas as pd
-
-    output_path = Path(path)
-    frame = pd.DataFrame(list(rows))
-    frame.to_excel(output_path, index=False)
-    return output_path
-
+def _format_csv_value(value: object) -> object:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return " | ".join(str(item) for item in value)
+    return value
