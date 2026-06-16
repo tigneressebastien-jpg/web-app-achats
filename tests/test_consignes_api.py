@@ -67,7 +67,7 @@ def test_consignes_apply_endpoint_keeps_unknown_rule_visible() -> None:
     assert payload["anomalie"] == "Consigne non reconnue: A VERIFIER"
 
 
-def test_consignes_saved_endpoint_creates_and_lists_consigne() -> None:
+def test_consignes_saved_endpoint_creates_and_lists_consigne_by_erp_key() -> None:
     response = client.post(
         "/consignes/saved",
         json={
@@ -84,41 +84,47 @@ def test_consignes_saved_endpoint_creates_and_lists_consigne() -> None:
     assert payload["id"] > 0
     assert payload["acheteur"] == "Seb"
     assert payload["code_article"] == "ART-CONSIGNE-SAVED-001"
-    assert payload["plateforme"] == "SAMATERRA"
+    assert payload["plateforme_erp"] == "SMT"
     assert payload["texte_consigne"] == "+10 stock"
     assert payload["valeur_consigne"] == 3
 
     list_response = client.get(
         "/consignes/saved",
-        params={"acheteur": "Seb", "code_article": "ART-CONSIGNE-SAVED-001"},
+        params={
+            "acheteur": "Seb",
+            "code_article": "ART-CONSIGNE-SAVED-001",
+            "plateforme_erp": "SMT",
+        },
     )
 
     assert list_response.status_code == 200
     consignes = list_response.json()["consignes"]
     assert len(consignes) == 1
     assert consignes[0]["id"] == payload["id"]
+    assert consignes[0]["plateforme_erp"] == "SMT"
 
 
-def test_consignes_saved_endpoint_upserts_existing_consigne() -> None:
+def test_consignes_saved_endpoint_upserts_existing_consigne_after_pf_normalization() -> None:
     first_response = client.post(
         "/consignes/saved",
         json={
             "acheteur": "Seb",
             "code_article": "ART-CONSIGNE-UPSERT-001",
-            "plateforme": "CHAPO",
+            "plateforme_erp": "CHAPO",
             "texte_consigne": "OK",
             "valeur_consigne": 0,
         },
     )
     assert first_response.status_code == 200
     first_payload = first_response.json()
+    assert first_payload["plateforme_erp"] == "CHA"
 
     second_response = client.post(
         "/consignes/saved",
         json={
             "acheteur": "Seb",
             "code_article": "ART-CONSIGNE-UPSERT-001",
-            "plateforme": "CHAPO",
+            "plateforme_erp": "CHAPO LENT",
             "texte_consigne": "+25 stock",
             "valeur_consigne": 5,
         },
@@ -127,6 +133,7 @@ def test_consignes_saved_endpoint_upserts_existing_consigne() -> None:
     assert second_response.status_code == 200
     second_payload = second_response.json()
     assert second_payload["id"] == first_payload["id"]
+    assert second_payload["plateforme_erp"] == "CHA"
     assert second_payload["texte_consigne"] == "+25 stock"
     assert second_payload["valeur_consigne"] == 5
 
@@ -137,7 +144,7 @@ def test_consignes_saved_endpoint_rejects_empty_code_article() -> None:
         json={
             "acheteur": "Seb",
             "code_article": " ",
-            "plateforme": "CHAPO",
+            "plateforme_erp": "CHAPO",
             "texte_consigne": "OK",
             "valeur_consigne": 0,
         },
@@ -176,7 +183,7 @@ def test_consignes_import_csv_saves_valid_rows_and_reports_anomalies() -> None:
         "id": saved_by_code["ART-CONSIGNE-IMPORT-001"]["id"],
         "acheteur": "Seb",
         "code_article": "ART-CONSIGNE-IMPORT-001",
-        "plateforme": "SAMATERRA",
+        "plateforme_erp": "SMT",
         "texte_consigne": "+15 stock",
         "valeur_consigne": 4,
     }
@@ -184,7 +191,7 @@ def test_consignes_import_csv_saves_valid_rows_and_reports_anomalies() -> None:
         "id": saved_by_code["ART-CONSIGNE-IMPORT-003"]["id"],
         "acheteur": "Seb",
         "code_article": "ART-CONSIGNE-IMPORT-003",
-        "plateforme": "CHAPO",
+        "plateforme_erp": "CHA",
         "texte_consigne": "OK",
         "valeur_consigne": 0,
     }
@@ -210,6 +217,7 @@ def test_consignes_import_csv_saves_valid_rows_and_reports_anomalies() -> None:
         params={"acheteur": "Seb", "code_article": "ART-CONSIGNE-IMPORT-001"},
     )
     assert list_response.status_code == 200
+    assert list_response.json()["consignes"][0]["plateforme_erp"] == "SMT"
     assert list_response.json()["consignes"][0]["texte_consigne"] == "+15 stock"
 
 
@@ -236,7 +244,7 @@ def test_consignes_import_csv_preview_does_not_save_rows() -> None:
             {
                 "acheteur": "Seb",
                 "code_article": "ART-CONSIGNE-PREVIEW-001",
-                "plateforme": "ST CYR",
+                "plateforme_erp": "SCY",
                 "texte_consigne": "+20 stock",
                 "valeur_consigne": 2,
             }
