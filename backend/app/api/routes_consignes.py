@@ -20,6 +20,8 @@ from app.schemas import (
 from app.services.consigne_import_service import read_consignes_csv_text
 from app.services.consigne_repository_service import list_consignes, upsert_consigne
 from app.services.consigne_service import appliquer_consigne
+from app.services.platform_repository_service import load_effective_platforms
+from app.services.platform_service import normaliser_plateforme_erp
 
 
 router = APIRouter(prefix="/consignes", tags=["consignes"])
@@ -48,7 +50,7 @@ def save_consigne(
         consigne = upsert_consigne(
             db,
             code_article=payload.code_article,
-            plateforme=payload.plateforme,
+            plateforme_erp=_normalize_consigne_plateforme_erp(payload.plateforme_erp, db),
             texte_consigne=payload.texte_consigne,
             valeur_consigne=payload.valeur_consigne,
             acheteur=payload.acheteur,
@@ -63,14 +65,19 @@ def save_consigne(
 def get_saved_consignes(
     acheteur: str | None = None,
     code_article: str | None = None,
+    plateforme_erp: str | None = None,
     plateforme: str | None = None,
     db: Session = Depends(get_db),
 ) -> ConsigneSavedListResponse:
+    plateforme_filter = plateforme_erp or plateforme
+    if plateforme_filter:
+        plateforme_filter = _normalize_consigne_plateforme_erp(plateforme_filter, db)
+
     consignes = list_consignes(
         db,
         acheteur=acheteur,
         code_article=code_article,
-        plateforme=plateforme,
+        plateforme_erp=plateforme_filter,
     )
     return ConsigneSavedListResponse(
         consignes=[_consigne_to_schema(consigne) for consigne in consignes]
@@ -78,9 +85,12 @@ def get_saved_consignes(
 
 
 @router.post("/import/csv/preview", response_model=ConsigneImportPreviewResponse)
-async def preview_consignes_csv(file: UploadFile = File(...)) -> ConsigneImportPreviewResponse:
+async def preview_consignes_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> ConsigneImportPreviewResponse:
     preview = await _read_consignes_csv_upload(file)
-    return _consigne_import_preview_response(file.filename or "", preview)
+    return _consigne_import_preview_response(file.filename or "", preview, db)
 
 
 @router.post("/import/csv", response_model=ConsigneImportResponse)
@@ -95,7 +105,7 @@ async def import_consignes_csv(
         consigne = upsert_consigne(
             db,
             code_article=row.code_article,
-            plateforme=row.plateforme,
+            plateforme_erp=_normalize_consigne_plateforme_erp(row.plateforme_erp, db),
             texte_consigne=row.texte_consigne,
             valeur_consigne=row.valeur_consigne,
             acheteur=row.acheteur,
@@ -130,6 +140,7 @@ async def _read_consignes_csv_upload(file: UploadFile):
 def _consigne_import_preview_response(
     filename: str,
     preview,
+    db: Session,
 ) -> ConsigneImportPreviewResponse:
     return ConsigneImportPreviewResponse(
         filename=filename,
@@ -138,7 +149,7 @@ def _consigne_import_preview_response(
         rows=[
             ConsigneImportRowSchema(
                 code_article=row.code_article,
-                plateforme=row.plateforme,
+                plateforme_erp=_normalize_consigne_plateforme_erp(row.plateforme_erp, db),
                 texte_consigne=row.texte_consigne,
                 valeur_consigne=row.valeur_consigne,
                 acheteur=row.acheteur,
@@ -149,6 +160,13 @@ def _consigne_import_preview_response(
     )
 
 
+def _normalize_consigne_plateforme_erp(value: str, db: Session) -> str:
+    try:
+        return normaliser_plateforme_erp(value, load_effective_platforms(db))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 def _anomaly_schemas(anomalies) -> list[ImportAnomalySchema]:
     return [ImportAnomalySchema(**anomaly.__dict__) for anomaly in anomalies]
 
@@ -157,7 +175,7 @@ def _consigne_to_schema(consigne) -> ConsigneSavedSchema:
     return ConsigneSavedSchema(
         id=consigne.id,
         code_article=consigne.code_article,
-        plateforme=consigne.plateforme,
+        plateforme_erp=consigne.plateforme,
         texte_consigne=consigne.texte_consigne,
         valeur_consigne=consigne.valeur_consigne,
         acheteur=consigne.acheteur,
