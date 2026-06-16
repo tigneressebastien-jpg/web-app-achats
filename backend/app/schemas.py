@@ -32,6 +32,27 @@ class ConsigneApplyResponse(BaseModel):
     anomalie: str | None = None
 
 
+class ConsigneSavedRequest(BaseModel):
+    code_article: str
+    plateforme: str
+    texte_consigne: str
+    valeur_consigne: float = 0
+    acheteur: str = "Seb"
+
+
+class ConsigneSavedSchema(BaseModel):
+    id: int
+    code_article: str
+    plateforme: str
+    texte_consigne: str
+    valeur_consigne: float
+    acheteur: str
+
+
+class ConsigneSavedListResponse(BaseModel):
+    consignes: list[ConsigneSavedSchema]
+
+
 class FournisseurFillRequest(BaseModel):
     plateforme: str
     commandes: float
