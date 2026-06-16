@@ -67,3 +67,28 @@ def test_calculations_seb_simple_returns_400_for_unknown_platform() -> None:
     assert response.status_code == 400
     assert "ART-UNKNOWN-001" in response.json()["detail"]
     assert "XXX" in response.json()["detail"]
+
+
+def test_calculations_seb_simple_returns_400_for_invalid_pct_lent() -> None:
+    response = client.post(
+        "/calculations/seb/simple",
+        json={
+            "buyer": "Seb",
+            "rows": [
+                {
+                    "code_article": "ART-PCT-LENT-NEG-001",
+                    "libelle_article": "Article pct lent invalide",
+                    "code_plateforme_erp": "CHA",
+                    "prevision": 100,
+                    "solde_previsionnel_j1": -10,
+                    "coeff_lent": 1,
+                    "pct_lent": -0.5,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "ART-PCT-LENT-NEG-001" in detail
+    assert "Le pourcentage lent ne peut pas etre negatif" in detail
