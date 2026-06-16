@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+client = TestClient(app)
+
+
+def test_calculations_seb_simple_maps_smt_and_computes_fast_need() -> None:
+    response = client.post(
+        "/calculations/seb/simple",
+        json={
+            "buyer": "Seb",
+            "rows": [
+                {
+                    "code_article": "ART-SMT-001",
+                    "libelle_article": "Article test SMT",
+                    "code_plateforme_erp": "SMT",
+                    "prevision": 1155,
+                    "solde_previsionnel_j1": -1000,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["buyer"] == "Seb"
+    assert len(payload["results"]) == 1
+
+    result = payload["results"][0]
+    assert result["code_article"] == "ART-SMT-001"
+    assert result["libelle_article"] == "Article test SMT"
+    assert result["code_plateforme_erp"] == "SMT"
+    assert result["pf_rapide"] == "SAMATERRA"
+    assert result["pf_lente"] == "SAMATERRA LENT"
+    assert result["solde_corrige"] == -1000
+    assert result["besoin_rapide"] == 1000
+    assert result["besoin_lent"] == 0
+    assert result["besoin_lent_brut"] == 0
+    assert result["surplus_positif"] == 0
+    assert result["besoin_total"] == 1000
+    assert result["consigne_regle"] is None
+    assert result["logs"] == []
