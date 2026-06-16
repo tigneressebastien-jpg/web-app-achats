@@ -72,6 +72,34 @@ def mapper_code_erp_plateformes(
     raise PlatformNotFoundError(f"Code ERP plateforme inconnu: {code_erp}")
 
 
+def normaliser_plateforme_erp(
+    value: str,
+    plateformes: Iterable[PlatformParam],
+    *,
+    inclure_inactives: bool = False,
+) -> str:
+    """Return the ERP code for an ERP code, rapid PF, or slow PF label."""
+    normalized_value = _normaliser_label(value)
+    if not normalized_value:
+        raise ValueError("plateforme_erp obligatoire")
+
+    matches: list[PlatformParam] = []
+    for plateforme in plateformes:
+        labels = [plateforme.code_erp, plateforme.pf_rapide, plateforme.pf_lente]
+        if normalized_value not in {_normaliser_label(label) for label in labels if label}:
+            continue
+        if not plateforme.actif and not inclure_inactives:
+            raise PlatformNotFoundError(f"Plateforme ERP inactive: {value}")
+        matches.append(plateforme)
+
+    unique_codes = sorted({_normaliser_code(platform.code_erp) for platform in matches})
+    if len(unique_codes) == 1:
+        return unique_codes[0]
+    if len(unique_codes) > 1:
+        raise ValueError(f"Plateforme consigne ambigue: {value}")
+    raise PlatformNotFoundError(f"Plateforme consigne inconnue: {value}")
+
+
 def _read_excel_platforms(path: Path) -> list[PlatformParam]:
     try:
         import pandas as pd
@@ -135,3 +163,7 @@ def _to_bool(value: object | None, *, default: bool) -> bool:
 
 def _normaliser_code(code: str) -> str:
     return str(code).strip().upper()
+
+
+def _normaliser_label(value: object | None) -> str:
+    return " ".join(str(value or "").strip().upper().split())
