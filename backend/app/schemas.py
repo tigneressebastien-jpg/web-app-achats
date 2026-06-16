@@ -17,6 +17,21 @@ class PlatformResolveRequest(BaseModel):
     inclure_inactives: bool = False
 
 
+class ConsigneApplyRequest(BaseModel):
+    solde_import: float
+    texte_consigne: str | None = None
+    valeur_consigne: float = 0
+
+
+class ConsigneApplyResponse(BaseModel):
+    solde_corrige: float
+    besoin_rapide: float
+    surplus_positif: float
+    regle: str
+    texte_normalise: str
+    anomalie: str | None = None
+
+
 class CalculationInputRow(BaseModel):
     code_article: str
     libelle_article: str
