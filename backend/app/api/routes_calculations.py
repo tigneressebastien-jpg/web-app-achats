@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models import ConsigneModel
 from app.schemas import (
     CalculationFromBatchResponse,
     CalculationFromImportResponse,
@@ -22,6 +23,7 @@ from app.services.calculation_repository_service import (
     list_calculation_runs,
     save_calculation_run,
 )
+from app.services.consigne_repository_service import get_consigne_for_erp_row
 from app.services.import_repository_service import (
     erp_row_model_to_domain,
     get_import_batch,
@@ -50,6 +52,8 @@ def calculate_seb_simple(
         coeff_lent_by_default=None,
         pct_lent_by_default=None,
         pourcentage_lent_by_default=None,
+        db=db,
+        buyer=payload.buyer,
     )
     run_id = _persist_run_if_requested(db, persist=persist, buyer=payload.buyer, results=results)
     return CalculationResponse(buyer=payload.buyer, results=results, run_id=run_id)
@@ -81,6 +85,8 @@ async def calculate_seb_from_erp_import(
         coeff_lent_by_default=coeff_lent,
         pct_lent_by_default=pct_lent,
         pourcentage_lent_by_default=pourcentage_lent,
+        db=db,
+        buyer=buyer,
     )
     import_anomalies = [
         ImportAnomalySchema(**anomaly.__dict__)
@@ -130,6 +136,8 @@ def calculate_seb_from_import_batch(
         coeff_lent_by_default=coeff_lent,
         pct_lent_by_default=pct_lent,
         pourcentage_lent_by_default=pourcentage_lent,
+        db=db,
+        buyer=buyer,
     )
     run_id = _persist_run_if_requested(db, persist=persist, buyer=buyer, results=results)
 
@@ -194,15 +202,21 @@ def _calculate_rows_for_seb(
     coeff_lent_by_default: float | None,
     pct_lent_by_default: float | None,
     pourcentage_lent_by_default: float | None,
+    db: Session,
+    buyer: str,
 ) -> list[dict[str, object]]:
     results = []
     for row in rows:
-        code_article = row.code_article if isinstance(row, ErpRow) else str(row.get("code_article", ""))
+        code_article = _row_code_article(row)
         try:
+            consigne = _find_saved_consigne(db, buyer=buyer, row=row)
+            texte_consigne, valeur_consigne = _consigne_values(row, consigne)
             if isinstance(row, ErpRow):
                 result = calculer_besoin_rapide_lent(
                     row,
                     plateformes,
+                    texte_consigne=texte_consigne,
+                    valeur_consigne=valeur_consigne,
                     coeff_lent=coeff_lent_by_default or 0,
                     pct_lent=pct_lent_by_default,
                     pourcentage_lent=pourcentage_lent_by_default,
@@ -211,8 +225,8 @@ def _calculate_rows_for_seb(
                 result = calculer_besoin_rapide_lent(
                     row,
                     plateformes,
-                    texte_consigne=row.get("texte_consigne"),
-                    valeur_consigne=float(row.get("valeur_consigne", 0) or 0),
+                    texte_consigne=texte_consigne,
+                    valeur_consigne=valeur_consigne,
                     coeff_lent=float(row.get("coeff_lent", coeff_lent_by_default or 0) or 0),
                     pct_lent=row.get("pct_lent", pct_lent_by_default),
                     pourcentage_lent=row.get("pourcentage_lent", pourcentage_lent_by_default),
@@ -232,6 +246,43 @@ def _calculate_rows_for_seb(
             ) from exc
         results.append(result.as_dict())
     return results
+
+
+def _find_saved_consigne(
+    db: Session,
+    *,
+    buyer: str,
+    row: ErpRow | dict[str, object],
+) -> ConsigneModel | None:
+    return get_consigne_for_erp_row(
+        db,
+        acheteur=buyer,
+        code_article=_row_code_article(row),
+        plateforme_erp=_row_code_plateforme_erp(row),
+    )
+
+
+def _consigne_values(
+    row: ErpRow | dict[str, object],
+    saved_consigne: ConsigneModel | None,
+) -> tuple[str | None, float]:
+    if saved_consigne is not None:
+        return saved_consigne.texte_consigne, saved_consigne.valeur_consigne
+    if isinstance(row, ErpRow):
+        return None, 0
+    return row.get("texte_consigne"), float(row.get("valeur_consigne", 0) or 0)
+
+
+def _row_code_article(row: ErpRow | dict[str, object]) -> str:
+    if isinstance(row, ErpRow):
+        return row.code_article
+    return str(row.get("code_article", ""))
+
+
+def _row_code_plateforme_erp(row: ErpRow | dict[str, object]) -> str:
+    if isinstance(row, ErpRow):
+        return row.code_plateforme_erp
+    return str(row.get("code_plateforme_erp", ""))
 
 
 def _platforms_from_payload(
