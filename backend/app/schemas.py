@@ -87,6 +87,41 @@ class CalculationResultSchema(BaseModel):
 class CalculationResponse(BaseModel):
     buyer: str
     results: list[CalculationResultSchema]
+    run_id: int | None = None
+
+
+class StoredCalculationResultSchema(BaseModel):
+    code_article: str
+    libelle_article: str
+    code_plateforme_erp: str
+    pf_rapide: str | None
+    pf_lente: str | None
+    besoin_rapide: float
+    besoin_lent: float
+    besoin_total: float
+    consigne_regle: str | None
+
+
+class CalculationLogSchema(BaseModel):
+    id: int
+    level: str
+    message: str
+    context_json: str | None = None
+    created_at: str
+
+
+class CalculationRunSummary(BaseModel):
+    run_id: int
+    buyer: str
+    created_at: str
+    status: str
+    result_count: int
+    log_count: int
+
+
+class CalculationRunDetail(CalculationRunSummary):
+    results: list[StoredCalculationResultSchema]
+    logs: list[CalculationLogSchema]
 
 
 class ErpImportRowSchema(BaseModel):
@@ -139,6 +174,7 @@ class CalculationFromImportResponse(BaseModel):
     import_row_count: int
     import_anomalies: list[ImportAnomalySchema]
     results: list[CalculationResultSchema]
+    run_id: int | None = None
 
 
 class CalculationFromBatchResponse(BaseModel):
@@ -148,6 +184,7 @@ class CalculationFromBatchResponse(BaseModel):
     source_type: str
     import_row_count: int
     results: list[CalculationResultSchema]
+    run_id: int | None = None
 
 
 class CamionProjectionRequest(BaseModel):
