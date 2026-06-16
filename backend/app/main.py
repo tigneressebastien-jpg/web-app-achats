@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.api import routes_calculations, routes_camions, routes_consignes
-from app.api import routes_exports, routes_health, routes_imports, routes_lunes
-from app.api import routes_platforms
+from app.api import routes_exports, routes_fournisseurs, routes_health, routes_imports
+from app.api import routes_lunes, routes_platforms
 from app.database import Base, engine
 
 
@@ -17,6 +17,7 @@ app.include_router(routes_platforms.router)
 app.include_router(routes_calculations.router)
 app.include_router(routes_camions.router)
 app.include_router(routes_consignes.router)
+app.include_router(routes_fournisseurs.router)
 app.include_router(routes_lunes.router)
 app.include_router(routes_imports.router)
 app.include_router(routes_exports.router)

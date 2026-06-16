@@ -32,6 +32,23 @@ class ConsigneApplyResponse(BaseModel):
     anomalie: str | None = None
 
 
+class FournisseurFillRequest(BaseModel):
+    plateforme: str
+    commandes: float
+    besoin: float
+    palettisation: float
+    pas_colis: float | None = None
+    pf_interdite: str | list[str] | None = None
+    arrondi: str = "sans_depasser"
+
+
+class FournisseurFillResponse(BaseModel):
+    plateforme: str
+    quantite: float
+    pas_utilise: float
+    raison: str
+
+
 class CalculationInputRow(BaseModel):
     code_article: str
     libelle_article: str
