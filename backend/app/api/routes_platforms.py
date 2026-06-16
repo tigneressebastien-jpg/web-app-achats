@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import PlatformParamModel
 from app.schemas import PlatformParamSchema, PlatformResolveRequest
+from app.services.platform_repository_service import (
+    load_effective_platforms,
+    model_to_platform_param,
+)
 from app.services.platform_service import (
     PlatformNotFoundError,
     PlatformParam,
@@ -32,7 +36,7 @@ def list_saved_platforms(db: Session = Depends(get_db)) -> list[PlatformParamSch
         .order_by(PlatformParamModel.code_erp.asc())
         .all()
     )
-    return [_schema_from_model(row) for row in rows]
+    return [_schema_from_param(model_to_platform_param(row)) for row in rows]
 
 
 @router.post("/saved", response_model=PlatformParamSchema)
@@ -59,12 +63,23 @@ def upsert_saved_platform(
     row.lent_avec_pourcentage = payload.lent_avec_pourcentage
     db.commit()
     db.refresh(row)
-    return _schema_from_model(row)
+    return _schema_from_param(model_to_platform_param(row))
+
+
+@router.get("/effective", response_model=list[PlatformParamSchema])
+def list_effective_platforms(db: Session = Depends(get_db)) -> list[PlatformParamSchema]:
+    return [
+        _schema_from_param(platform)
+        for platform in load_effective_platforms(db)
+    ]
 
 
 @router.post("/resolve", response_model=PlatformParamSchema)
-def resolve_platform(payload: PlatformResolveRequest) -> PlatformParamSchema:
-    plateformes = _platforms_from_payload(payload.plateformes)
+def resolve_platform(
+    payload: PlatformResolveRequest,
+    db: Session = Depends(get_db),
+) -> PlatformParamSchema:
+    plateformes = _platforms_from_payload(payload.plateformes, db)
     try:
         platform = mapper_code_erp_plateformes(
             payload.code_erp,
@@ -73,22 +88,17 @@ def resolve_platform(payload: PlatformResolveRequest) -> PlatformParamSchema:
         )
     except PlatformNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return PlatformParamSchema(**platform.__dict__)
+    return _schema_from_param(platform)
 
 
 def _platforms_from_payload(
     plateformes: list[PlatformParamSchema] | None,
+    db: Session,
 ) -> list[PlatformParam]:
     if plateformes is None:
-        return lire_plateformes_dynamiques()
+        return load_effective_platforms(db)
     return [PlatformParam(**platform.model_dump()) for platform in plateformes]
 
 
-def _schema_from_model(row: PlatformParamModel) -> PlatformParamSchema:
-    return PlatformParamSchema(
-        code_erp=row.code_erp,
-        pf_rapide=row.pf_rapide,
-        pf_lente=row.pf_lente,
-        actif=row.actif,
-        lent_avec_pourcentage=row.lent_avec_pourcentage,
-    )
+def _schema_from_param(platform: PlatformParam) -> PlatformParamSchema:
+    return PlatformParamSchema(**platform.__dict__)
