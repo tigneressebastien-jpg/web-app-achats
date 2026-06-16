@@ -112,12 +112,41 @@ class ErpImportPreviewResponse(BaseModel):
     anomalies: list[ImportAnomalySchema]
 
 
+class ErpImportSaveResponse(BaseModel):
+    batch_id: int
+    filename: str
+    source_type: str
+    row_count: int
+    anomalies: list[ImportAnomalySchema]
+
+
+class ErpImportBatchSummary(BaseModel):
+    batch_id: int
+    filename: str
+    source_type: str
+    imported_at: str
+    row_count: int
+
+
+class ErpImportBatchDetailResponse(ErpImportBatchSummary):
+    rows: list[ErpImportRowSchema]
+
+
 class CalculationFromImportResponse(BaseModel):
     buyer: str
     filename: str
     source_type: str
     import_row_count: int
     import_anomalies: list[ImportAnomalySchema]
+    results: list[CalculationResultSchema]
+
+
+class CalculationFromBatchResponse(BaseModel):
+    buyer: str
+    batch_id: int
+    filename: str
+    source_type: str
+    import_row_count: int
     results: list[CalculationResultSchema]
 
 
