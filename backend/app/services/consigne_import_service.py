@@ -11,7 +11,7 @@ from app.services.import_service import ImportAnomaly
 @dataclass(frozen=True)
 class ConsigneImportRow:
     code_article: str
-    plateforme: str
+    plateforme_erp: str
     texte_consigne: str
     valeur_consigne: float = 0
     acheteur: str = "Seb"
@@ -26,7 +26,15 @@ class ConsigneImportPreview:
 
 _COLUMN_ALIASES = {
     "code_article": ("code_article", "code article", "article", "c"),
-    "plateforme": ("plateforme", "pf", "plateforme cible"),
+    "plateforme_erp": (
+        "plateforme_erp",
+        "plateforme erp",
+        "code_erp",
+        "code erp",
+        "plateforme",
+        "pf",
+        "plateforme cible",
+    ),
     "texte_consigne": ("texte_consigne", "texte consigne", "consigne"),
     "valeur_consigne": ("valeur_consigne", "valeur consigne", "valeur"),
     "acheteur": ("acheteur", "buyer"),
@@ -70,15 +78,15 @@ def read_consignes_csv_text(text: str) -> ConsigneImportPreview:
             continue
 
         code_article = _clean_text(_get_value(record, "code_article"))
-        plateforme = _clean_text(_get_value(record, "plateforme"))
+        plateforme_erp = _clean_text(_get_value(record, "plateforme_erp"))
         texte_consigne = _clean_text(_get_value(record, "texte_consigne"))
         acheteur = _clean_text(_get_value(record, "acheteur")) or "Seb"
 
         missing_fields = []
         if not code_article:
             missing_fields.append("code_article")
-        if not plateforme:
-            missing_fields.append("plateforme")
+        if not plateforme_erp:
+            missing_fields.append("plateforme_erp")
         if not texte_consigne:
             missing_fields.append("texte_consigne")
 
@@ -96,7 +104,7 @@ def read_consignes_csv_text(text: str) -> ConsigneImportPreview:
         rows.append(
             ConsigneImportRow(
                 code_article=code_article,
-                plateforme=plateforme,
+                plateforme_erp=plateforme_erp,
                 texte_consigne=texte_consigne,
                 valeur_consigne=_to_float(
                     _get_value(record, "valeur_consigne"),
