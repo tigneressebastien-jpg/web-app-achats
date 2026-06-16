@@ -74,6 +74,27 @@ class ErpImportPreviewResponse(BaseModel):
     anomalies: list[ImportAnomalySchema]
 
 
+class CamionProjectionRequest(BaseModel):
+    jour_depart: str
+    camions_depart: float
+    nombre_jours: int = 6
+    inclure_depart: bool = True
+
+
+class CamionProjectionRow(BaseModel):
+    jour: str
+    camions: float
+    camions_affichage: int
+
+
+class CamionProjectionResponse(BaseModel):
+    jour_depart: str
+    camions_depart: float
+    nombre_jours: int
+    inclure_depart: bool
+    projections: list[CamionProjectionRow]
+
+
 class LunesCreditRequest(BaseModel):
     pf_lente: str
     commandes_lent_semaine: float
