@@ -7,12 +7,21 @@ from app.database import get_db
 from app.schemas import (
     CalculationFromBatchResponse,
     CalculationFromImportResponse,
+    CalculationLogSchema,
     CalculationRequest,
     CalculationResponse,
+    CalculationRunDetail,
+    CalculationRunSummary,
     ImportAnomalySchema,
     PlatformParamSchema,
+    StoredCalculationResultSchema,
 )
 from app.services.besoin_service import ErpRow, calculer_besoin_rapide_lent
+from app.services.calculation_repository_service import (
+    get_calculation_run,
+    list_calculation_runs,
+    save_calculation_run,
+)
 from app.services.import_repository_service import (
     erp_row_model_to_domain,
     get_import_batch,
@@ -25,9 +34,14 @@ from app.services.platform_service import PlatformNotFoundError, PlatformParam
 router = APIRouter(prefix="/calculations", tags=["calculations"])
 
 
-@router.post("/seb/simple", response_model=CalculationResponse)
+@router.post(
+    "/seb/simple",
+    response_model=CalculationResponse,
+    response_model_exclude_none=True,
+)
 def calculate_seb_simple(
     payload: CalculationRequest,
+    persist: bool = False,
     db: Session = Depends(get_db),
 ) -> CalculationResponse:
     plateformes = _platforms_from_payload(payload.plateformes, db)
@@ -38,16 +52,22 @@ def calculate_seb_simple(
         pct_lent_by_default=None,
         pourcentage_lent_by_default=None,
     )
-    return CalculationResponse(buyer=payload.buyer, results=results)
+    run_id = _persist_run_if_requested(db, persist=persist, buyer=payload.buyer, results=results)
+    return CalculationResponse(buyer=payload.buyer, results=results, run_id=run_id)
 
 
-@router.post("/seb/from-erp-import", response_model=CalculationFromImportResponse)
+@router.post(
+    "/seb/from-erp-import",
+    response_model=CalculationFromImportResponse,
+    response_model_exclude_none=True,
+)
 async def calculate_seb_from_erp_import(
     file: UploadFile = File(...),
     buyer: str = Form("Seb"),
     coeff_lent: float = Form(0),
     pct_lent: float | None = Form(None),
     pourcentage_lent: float | None = Form(None),
+    persist: bool = Form(False),
     db: Session = Depends(get_db),
 ) -> CalculationFromImportResponse:
     content = await file.read()
@@ -64,27 +84,41 @@ async def calculate_seb_from_erp_import(
         pct_lent_by_default=pct_lent,
         pourcentage_lent_by_default=pourcentage_lent,
     )
+    import_anomalies = [
+        ImportAnomalySchema(**anomaly.__dict__)
+        for anomaly in preview.anomalies
+    ]
+    run_id = _persist_run_if_requested(
+        db,
+        persist=persist,
+        buyer=buyer,
+        results=results,
+        extra_logs=[anomaly.model_dump() for anomaly in import_anomalies],
+    )
 
     return CalculationFromImportResponse(
         buyer=buyer,
         filename=file.filename or "",
         source_type=preview.source_type,
         import_row_count=len(preview.rows),
-        import_anomalies=[
-            ImportAnomalySchema(**anomaly.__dict__)
-            for anomaly in preview.anomalies
-        ],
+        import_anomalies=import_anomalies,
         results=results,
+        run_id=run_id,
     )
 
 
-@router.post("/seb/from-import-batch/{batch_id}", response_model=CalculationFromBatchResponse)
+@router.post(
+    "/seb/from-import-batch/{batch_id}",
+    response_model=CalculationFromBatchResponse,
+    response_model_exclude_none=True,
+)
 def calculate_seb_from_import_batch(
     batch_id: int,
     buyer: str = "Seb",
     coeff_lent: float = 0,
     pct_lent: float | None = None,
     pourcentage_lent: float | None = None,
+    persist: bool = False,
     db: Session = Depends(get_db),
 ) -> CalculationFromBatchResponse:
     batch = get_import_batch(db, batch_id)
@@ -100,6 +134,7 @@ def calculate_seb_from_import_batch(
         pct_lent_by_default=pct_lent,
         pourcentage_lent_by_default=pourcentage_lent,
     )
+    run_id = _persist_run_if_requested(db, persist=persist, buyer=buyer, results=results)
 
     return CalculationFromBatchResponse(
         buyer=buyer,
@@ -108,6 +143,50 @@ def calculate_seb_from_import_batch(
         source_type=batch.source_type,
         import_row_count=len(rows),
         results=results,
+        run_id=run_id,
+    )
+
+
+@router.get("/runs", response_model=list[CalculationRunSummary])
+def get_calculation_runs(db: Session = Depends(get_db)) -> list[CalculationRunSummary]:
+    return [_run_summary(run) for run in list_calculation_runs(db)]
+
+
+@router.get("/runs/{run_id}", response_model=CalculationRunDetail)
+def get_calculation_run_detail(
+    run_id: int,
+    db: Session = Depends(get_db),
+) -> CalculationRunDetail:
+    run = get_calculation_run(db, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run calcul introuvable")
+
+    return CalculationRunDetail(
+        **_run_summary(run).model_dump(),
+        results=[
+            StoredCalculationResultSchema(
+                code_article=result.code_article,
+                libelle_article=result.libelle_article,
+                code_plateforme_erp=result.code_plateforme_erp,
+                pf_rapide=result.pf_rapide,
+                pf_lente=result.pf_lente,
+                besoin_rapide=result.besoin_rapide,
+                besoin_lent=result.besoin_lent,
+                besoin_total=result.besoin_total,
+                consigne_regle=result.consigne_appliquee,
+            )
+            for result in run.results
+        ],
+        logs=[
+            CalculationLogSchema(
+                id=log.id,
+                level=log.level,
+                message=log.message,
+                context_json=log.context_json,
+                created_at=log.created_at.isoformat(),
+            )
+            for log in run.logs
+        ],
     )
 
 
@@ -160,3 +239,33 @@ def _platforms_from_payload(
     if plateformes is None:
         return load_effective_platforms(db)
     return [PlatformParam(**platform.model_dump()) for platform in plateformes]
+
+
+def _persist_run_if_requested(
+    db: Session,
+    *,
+    persist: bool,
+    buyer: str,
+    results: list[dict[str, object]],
+    extra_logs: list[dict[str, object]] | None = None,
+) -> int | None:
+    if not persist:
+        return None
+    run = save_calculation_run(
+        db,
+        buyer=buyer,
+        results=results,
+        extra_logs=extra_logs,
+    )
+    return run.id
+
+
+def _run_summary(run) -> CalculationRunSummary:
+    return CalculationRunSummary(
+        run_id=run.id,
+        buyer=run.buyer,
+        created_at=run.created_at.isoformat(),
+        status=run.status,
+        result_count=len(run.results),
+        log_count=len(run.logs),
+    )
