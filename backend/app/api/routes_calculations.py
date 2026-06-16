@@ -225,6 +225,11 @@ def _calculate_rows_for_seb(
                     f"{exc}"
                 ),
             ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Calcul invalide pour l'article {code_article}: {exc}",
+            ) from exc
         results.append(result.as_dict())
     return results
 
