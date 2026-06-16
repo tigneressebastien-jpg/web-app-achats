@@ -80,6 +80,15 @@ class ErpImportPreviewResponse(BaseModel):
     anomalies: list[ImportAnomalySchema]
 
 
+class CalculationFromImportResponse(BaseModel):
+    buyer: str
+    filename: str
+    source_type: str
+    import_row_count: int
+    import_anomalies: list[ImportAnomalySchema]
+    results: list[CalculationResultSchema]
+
+
 class CamionProjectionRequest(BaseModel):
     jour_depart: str
     camions_depart: float
