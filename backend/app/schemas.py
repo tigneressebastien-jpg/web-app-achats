@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PlatformParamSchema(BaseModel):
@@ -49,6 +49,29 @@ class CalculationResultSchema(BaseModel):
 class CalculationResponse(BaseModel):
     buyer: str
     results: list[CalculationResultSchema]
+
+
+class ErpImportRowSchema(BaseModel):
+    code_article: str
+    libelle_article: str
+    code_plateforme_erp: str
+    prevision: float = 0
+    solde_previsionnel_j1: float = 0
+
+
+class ImportAnomalySchema(BaseModel):
+    row_number: int
+    level: str
+    message: str
+    context: dict[str, object] = Field(default_factory=dict)
+
+
+class ErpImportPreviewResponse(BaseModel):
+    filename: str
+    source_type: str
+    row_count: int
+    rows: list[ErpImportRowSchema]
+    anomalies: list[ImportAnomalySchema]
 
 
 class LunesCreditRequest(BaseModel):
