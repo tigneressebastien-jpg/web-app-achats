@@ -37,7 +37,6 @@ router = APIRouter(prefix="/calculations", tags=["calculations"])
 @router.post(
     "/seb/simple",
     response_model=CalculationResponse,
-    response_model_exclude_none=True,
 )
 def calculate_seb_simple(
     payload: CalculationRequest,
@@ -59,7 +58,6 @@ def calculate_seb_simple(
 @router.post(
     "/seb/from-erp-import",
     response_model=CalculationFromImportResponse,
-    response_model_exclude_none=True,
 )
 async def calculate_seb_from_erp_import(
     file: UploadFile = File(...),
@@ -110,7 +108,6 @@ async def calculate_seb_from_erp_import(
 @router.post(
     "/seb/from-import-batch/{batch_id}",
     response_model=CalculationFromBatchResponse,
-    response_model_exclude_none=True,
 )
 def calculate_seb_from_import_batch(
     batch_id: int,
