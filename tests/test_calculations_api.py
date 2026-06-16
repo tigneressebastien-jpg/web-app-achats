@@ -45,3 +45,25 @@ def test_calculations_seb_simple_maps_smt_and_computes_fast_need() -> None:
     assert result["besoin_total"] == 1000
     assert result["consigne_regle"] is None
     assert result["logs"] == []
+
+
+def test_calculations_seb_simple_returns_400_for_unknown_platform() -> None:
+    response = client.post(
+        "/calculations/seb/simple",
+        json={
+            "buyer": "Seb",
+            "rows": [
+                {
+                    "code_article": "ART-UNKNOWN-001",
+                    "libelle_article": "Article plateforme inconnue",
+                    "code_plateforme_erp": "XXX",
+                    "prevision": 100,
+                    "solde_previsionnel_j1": -10,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 400
+    assert "ART-UNKNOWN-001" in response.json()["detail"]
+    assert "XXX" in response.json()["detail"]

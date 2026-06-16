@@ -11,6 +11,12 @@ class PlatformParamSchema(BaseModel):
     lent_avec_pourcentage: bool = False
 
 
+class PlatformResolveRequest(BaseModel):
+    code_erp: str
+    plateformes: list[PlatformParamSchema] | None = None
+    inclure_inactives: bool = False
+
+
 class CalculationInputRow(BaseModel):
     code_article: str
     libelle_article: str
