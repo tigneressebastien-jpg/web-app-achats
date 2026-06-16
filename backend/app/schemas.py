@@ -60,6 +60,22 @@ class ConsigneSavedListResponse(BaseModel):
     consignes: list[ConsigneSavedSchema]
 
 
+class ConsigneImportRowSchema(BaseModel):
+    code_article: str
+    plateforme: str
+    texte_consigne: str
+    valeur_consigne: float = 0
+    acheteur: str = "Seb"
+
+
+class ConsigneImportPreviewResponse(BaseModel):
+    filename: str
+    source_type: str
+    row_count: int
+    rows: list[ConsigneImportRowSchema]
+    anomalies: list[ImportAnomalySchema]
+
+
 class ConsigneImportResponse(BaseModel):
     filename: str
     source_type: str
