@@ -9,7 +9,9 @@ from app.database import get_db
 from app.schemas import (
     ConsigneApplyRequest,
     ConsigneApplyResponse,
+    ConsigneImportPreviewResponse,
     ConsigneImportResponse,
+    ConsigneImportRowSchema,
     ConsigneSavedListResponse,
     ConsigneSavedRequest,
     ConsigneSavedSchema,
@@ -75,17 +77,18 @@ def get_saved_consignes(
     )
 
 
+@router.post("/import/csv/preview", response_model=ConsigneImportPreviewResponse)
+async def preview_consignes_csv(file: UploadFile = File(...)) -> ConsigneImportPreviewResponse:
+    preview = await _read_consignes_csv_upload(file)
+    return _consigne_import_preview_response(file.filename or "", preview)
+
+
 @router.post("/import/csv", response_model=ConsigneImportResponse)
 async def import_consignes_csv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> ConsigneImportResponse:
-    suffix = Path(file.filename or "").suffix.lower()
-    if suffix not in {".csv", ".txt", ""}:
-        raise HTTPException(status_code=400, detail=f"Format consignes non supporte: {suffix}")
-
-    content = await file.read()
-    preview = read_consignes_csv_text(content.decode("utf-8-sig"))
+    preview = await _read_consignes_csv_upload(file)
 
     saved_consignes = []
     for row in preview.rows:
@@ -104,8 +107,50 @@ async def import_consignes_csv(
         source_type=preview.source_type,
         saved_count=len(saved_consignes),
         consignes=saved_consignes,
-        anomalies=[ImportAnomalySchema(**anomaly.__dict__) for anomaly in preview.anomalies],
+        anomalies=_anomaly_schemas(preview.anomalies),
     )
+
+
+async def _read_consignes_csv_upload(file: UploadFile):
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".csv", ".txt", ""}:
+        raise HTTPException(status_code=400, detail=f"Format consignes non supporte: {suffix}")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Fichier consignes non lisible en UTF-8",
+        ) from exc
+    return read_consignes_csv_text(text)
+
+
+def _consigne_import_preview_response(
+    filename: str,
+    preview,
+) -> ConsigneImportPreviewResponse:
+    return ConsigneImportPreviewResponse(
+        filename=filename,
+        source_type=preview.source_type,
+        row_count=len(preview.rows),
+        rows=[
+            ConsigneImportRowSchema(
+                code_article=row.code_article,
+                plateforme=row.plateforme,
+                texte_consigne=row.texte_consigne,
+                valeur_consigne=row.valeur_consigne,
+                acheteur=row.acheteur,
+            )
+            for row in preview.rows
+        ],
+        anomalies=_anomaly_schemas(preview.anomalies),
+    )
+
+
+def _anomaly_schemas(anomalies) -> list[ImportAnomalySchema]:
+    return [ImportAnomalySchema(**anomaly.__dict__) for anomaly in anomalies]
 
 
 def _consigne_to_schema(consigne) -> ConsigneSavedSchema:
