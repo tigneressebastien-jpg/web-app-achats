@@ -17,6 +17,13 @@ class PlatformResolveRequest(BaseModel):
     inclure_inactives: bool = False
 
 
+class ImportAnomalySchema(BaseModel):
+    row_number: int
+    level: str
+    message: str
+    context: dict[str, object] = Field(default_factory=dict)
+
+
 class ConsigneApplyRequest(BaseModel):
     solde_import: float
     texte_consigne: str | None = None
@@ -58,7 +65,7 @@ class ConsigneImportResponse(BaseModel):
     source_type: str
     saved_count: int
     consignes: list[ConsigneSavedSchema]
-    anomalies: list["ImportAnomalySchema"]
+    anomalies: list[ImportAnomalySchema]
 
 
 class FournisseurFillRequest(BaseModel):
@@ -159,13 +166,6 @@ class ErpImportRowSchema(BaseModel):
     code_plateforme_erp: str
     prevision: float = 0
     solde_previsionnel_j1: float = 0
-
-
-class ImportAnomalySchema(BaseModel):
-    row_number: int
-    level: str
-    message: str
-    context: dict[str, object] = Field(default_factory=dict)
 
 
 class ErpImportPreviewResponse(BaseModel):
