@@ -9,29 +9,29 @@ def upsert_consigne(
     db: Session,
     *,
     code_article: str,
-    plateforme: str,
     texte_consigne: str,
+    plateforme_erp: str | None = None,
+    plateforme: str | None = None,
     valeur_consigne: float = 0,
     acheteur: str = "Seb",
 ) -> ConsigneModel:
     code_article_normalise = _require_text(code_article, "code_article")
-    plateforme_normalisee = _require_text(plateforme, "plateforme")
+    plateforme_erp_normalisee = _require_plateforme_erp(plateforme_erp or plateforme)
     texte_normalise = _require_text(texte_consigne, "texte_consigne")
     acheteur_normalise = _require_text(acheteur, "acheteur")
 
-    existing = (
-        db.query(ConsigneModel)
-        .filter(ConsigneModel.acheteur == acheteur_normalise)
-        .filter(ConsigneModel.code_article == code_article_normalise)
-        .filter(ConsigneModel.plateforme == plateforme_normalisee)
-        .one_or_none()
+    existing = get_consigne_for_erp_row(
+        db,
+        acheteur=acheteur_normalise,
+        code_article=code_article_normalise,
+        plateforme_erp=plateforme_erp_normalisee,
     )
 
     if existing is None:
         existing = ConsigneModel(
             acheteur=acheteur_normalise,
             code_article=code_article_normalise,
-            plateforme=plateforme_normalisee,
+            plateforme=plateforme_erp_normalisee,
             texte_consigne=texte_normalise,
             valeur_consigne=float(valeur_consigne),
         )
@@ -45,11 +45,32 @@ def upsert_consigne(
     return existing
 
 
+def get_consigne_for_erp_row(
+    db: Session,
+    *,
+    acheteur: str,
+    code_article: str,
+    plateforme_erp: str,
+) -> ConsigneModel | None:
+    acheteur_normalise = _require_text(acheteur, "acheteur")
+    code_article_normalise = _require_text(code_article, "code_article")
+    plateforme_erp_normalisee = _require_plateforme_erp(plateforme_erp)
+
+    return (
+        db.query(ConsigneModel)
+        .filter(ConsigneModel.acheteur == acheteur_normalise)
+        .filter(ConsigneModel.code_article == code_article_normalise)
+        .filter(ConsigneModel.plateforme == plateforme_erp_normalisee)
+        .one_or_none()
+    )
+
+
 def list_consignes(
     db: Session,
     *,
     acheteur: str | None = None,
     code_article: str | None = None,
+    plateforme_erp: str | None = None,
     plateforme: str | None = None,
 ) -> list[ConsigneModel]:
     query = db.query(ConsigneModel)
@@ -58,8 +79,9 @@ def list_consignes(
         query = query.filter(ConsigneModel.acheteur == acheteur.strip())
     if code_article:
         query = query.filter(ConsigneModel.code_article == code_article.strip())
-    if plateforme:
-        query = query.filter(ConsigneModel.plateforme == plateforme.strip())
+    plateforme_filter = plateforme_erp or plateforme
+    if plateforme_filter:
+        query = query.filter(ConsigneModel.plateforme == _require_plateforme_erp(plateforme_filter))
 
     return (
         query.order_by(
@@ -72,8 +94,12 @@ def list_consignes(
     )
 
 
-def _require_text(value: str, field_name: str) -> str:
+def _require_text(value: str | None, field_name: str) -> str:
     text = (value or "").strip()
     if not text:
         raise ValueError(f"{field_name} obligatoire")
     return text
+
+
+def _require_plateforme_erp(value: str | None) -> str:
+    return _require_text(value, "plateforme_erp").upper()
