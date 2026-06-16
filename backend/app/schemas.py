@@ -53,6 +53,14 @@ class ConsigneSavedListResponse(BaseModel):
     consignes: list[ConsigneSavedSchema]
 
 
+class ConsigneImportResponse(BaseModel):
+    filename: str
+    source_type: str
+    saved_count: int
+    consignes: list[ConsigneSavedSchema]
+    anomalies: list["ImportAnomalySchema"]
+
+
 class FournisseurFillRequest(BaseModel):
     plateforme: str
     commandes: float
