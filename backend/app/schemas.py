@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class PlatformParamSchema(BaseModel):
@@ -41,7 +41,9 @@ class ConsigneApplyResponse(BaseModel):
 
 class ConsigneSavedRequest(BaseModel):
     code_article: str
-    plateforme: str
+    plateforme_erp: str = Field(
+        validation_alias=AliasChoices("plateforme_erp", "plateforme")
+    )
     texte_consigne: str
     valeur_consigne: float = 0
     acheteur: str = "Seb"
@@ -50,7 +52,7 @@ class ConsigneSavedRequest(BaseModel):
 class ConsigneSavedSchema(BaseModel):
     id: int
     code_article: str
-    plateforme: str
+    plateforme_erp: str
     texte_consigne: str
     valeur_consigne: float
     acheteur: str
@@ -62,7 +64,7 @@ class ConsigneSavedListResponse(BaseModel):
 
 class ConsigneImportRowSchema(BaseModel):
     code_article: str
-    plateforme: str
+    plateforme_erp: str
     texte_consigne: str
     valeur_consigne: float = 0
     acheteur: str = "Seb"
