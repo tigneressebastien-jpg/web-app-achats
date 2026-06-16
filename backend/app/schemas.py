@@ -49,3 +49,22 @@ class CalculationResultSchema(BaseModel):
 class CalculationResponse(BaseModel):
     buyer: str
     results: list[CalculationResultSchema]
+
+
+class LunesCreditRequest(BaseModel):
+    pf_lente: str
+    commandes_lent_semaine: float
+    achats_lent_semaine: float
+    taux_lent: float
+    lent_lunes_initial: float
+    besoin_erp_rapide_brut: float | None = None
+
+
+class LunesCreditResponse(BaseModel):
+    pf_lente: str
+    besoin_100: float
+    rapide_lunes_final: float
+    surplus_lent_semaine: float
+    lent_lunes_initial: float
+    lent_lunes_final: float
+    detail_calcul: str
