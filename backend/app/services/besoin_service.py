@@ -69,7 +69,6 @@ def calculer_besoin_rapide_lent(
 ) -> BesoinResult:
     """Calculate a simple rapid/slow need split for one ERP row."""
     row = _coerce_erp_row(row_erp)
-    plateforme = mapper_code_erp_plateformes(row.code_plateforme_erp, plateformes)
     solde_import = _to_float(row.solde_previsionnel_j1)
     logs: list[str] = []
 
@@ -93,6 +92,7 @@ def calculer_besoin_rapide_lent(
         solde_corrige = solde_import
         besoin_rapide, surplus_positif = calculer_besoin_rapide_et_surplus(solde_corrige)
 
+    plateforme = mapper_code_erp_plateformes(row.code_plateforme_erp, plateformes)
     ratio_lent = _normaliser_pourcentage(
         pct_lent if pct_lent is not None else pourcentage_lent
     )
