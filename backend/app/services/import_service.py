@@ -37,6 +37,7 @@ _COLUMN_ALIASES = {
     "prevision": ("prevision", "prevision g", "g"),
     "solde_previsionnel_j1": (
         "solde_previsionnel_j1",
+        "solde previsionnel j1",
         "solde previsionnel j+1",
         "solde j+1",
         "i",
