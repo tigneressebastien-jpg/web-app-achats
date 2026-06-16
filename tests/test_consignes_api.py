@@ -145,3 +145,79 @@ def test_consignes_saved_endpoint_rejects_empty_code_article() -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "code_article obligatoire"
+
+
+def test_consignes_import_csv_saves_valid_rows_and_reports_anomalies() -> None:
+    csv_content = "\n".join(
+        [
+            "code_article;plateforme;texte_consigne;valeur_consigne;acheteur",
+            "ART-CONSIGNE-IMPORT-001;SAMATERRA;+15 stock;4;Seb",
+            "ART-CONSIGNE-IMPORT-002;CHAPO;;0;Seb",
+            "ART-CONSIGNE-IMPORT-003;CHAPO;OK;abc;Seb",
+        ]
+    )
+
+    response = client.post(
+        "/consignes/import/csv",
+        files={"file": ("consignes.csv", csv_content, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["filename"] == "consignes.csv"
+    assert payload["source_type"] == "csv"
+    assert payload["saved_count"] == 2
+
+    saved_by_code = {
+        consigne["code_article"]: consigne for consigne in payload["consignes"]
+    }
+    assert saved_by_code["ART-CONSIGNE-IMPORT-001"] == {
+        "id": saved_by_code["ART-CONSIGNE-IMPORT-001"]["id"],
+        "acheteur": "Seb",
+        "code_article": "ART-CONSIGNE-IMPORT-001",
+        "plateforme": "SAMATERRA",
+        "texte_consigne": "+15 stock",
+        "valeur_consigne": 4,
+    }
+    assert saved_by_code["ART-CONSIGNE-IMPORT-003"] == {
+        "id": saved_by_code["ART-CONSIGNE-IMPORT-003"]["id"],
+        "acheteur": "Seb",
+        "code_article": "ART-CONSIGNE-IMPORT-003",
+        "plateforme": "CHAPO",
+        "texte_consigne": "OK",
+        "valeur_consigne": 0,
+    }
+
+    anomalies = payload["anomalies"]
+    assert anomalies == [
+        {
+            "row_number": 3,
+            "level": "ERROR",
+            "message": "Ligne consigne ignoree: champs obligatoires manquants",
+            "context": {"missing_fields": ["texte_consigne"]},
+        },
+        {
+            "row_number": 4,
+            "level": "WARNING",
+            "message": "Valeur consigne numerique invalide, remplacee par 0",
+            "context": {"value": "abc"},
+        },
+    ]
+
+    list_response = client.get(
+        "/consignes/saved",
+        params={"acheteur": "Seb", "code_article": "ART-CONSIGNE-IMPORT-001"},
+    )
+    assert list_response.status_code == 200
+    assert list_response.json()["consignes"][0]["texte_consigne"] == "+15 stock"
+
+
+def test_consignes_import_csv_rejects_unsupported_format() -> None:
+    response = client.post(
+        "/consignes/import/csv",
+        files={"file": ("consignes.xlsx", "fake", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Format consignes non supporte: .xlsx"
